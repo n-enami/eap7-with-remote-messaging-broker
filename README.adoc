@@ -1,4 +1,6 @@
-= Hello World
+:running-doc-url: https://github.com/jboss-eap-up-and-running/docs/blob/main/RUNNING_ON_OPENSHIFT.adoc
+
+= Connect JBoss EAP 7 to a Remote Messaging Broker on OpenShift
 
 == The Application
 
@@ -32,18 +34,15 @@ oc expose deployment artemis --port=61616 --name=artemis-core
 
 Now our application will be able to access our server on port `61616` via the service `artemis-core` instead of using the IP address.
 
-== The Application
-The `src/main` folder contains a simple 'Hello world' style Java application using a servlet and a CDI bean.
-
 == Deploying the Quickstart
-Make sure you have done all the link:../RUNNING_ON_OPENSHIFT.adoc#_prerequisites[prerequisites] and link:../RUNNING_ON_OPENSHIFT.adoc#_selectingcreating_a_project[selected/created a project].
+Make sure you have done all the link:{running-doc-url}#prerequisites[prerequisites] and link:{running-doc-url}#selecting_creating_a_project[selected/created a project].
 
 Then install the Helm chart contained under link:./charts/helm.yaml[charts/helm.yaml] to install the application into OpenShift.
 [source,shell]
 ----
 helm install remote-broker -f charts/helm.yaml jboss-eap/eap74
 ----
-See the link:../RUNNING_ON_OPENSHIFT.adoc#_deploying_with_helm[Deploying with Helm] section for information about when the application will be ready.
+See the link:{running-doc-url}#deploying_with_helm[Deploying with Helm] section for information about when the application will be ready.
 
 == Running the application
 
@@ -69,7 +68,7 @@ You should see the following output:
 
 == Explaining the application configuration
 
-This `build` section contains just the standard information in link:../RUNNING_ON_OPENSHIFT.adoc#_introduction_to_helm_charts[Introduction to Helm Charts], link:./charts/helm.yaml[./charts/helm.yaml].
+This `build` section contains just the standard information in link:{running-doc-url}#introduction_to_helm_charts[Introduction to Helm Charts], link:./charts/helm.yaml[./charts/helm.yaml].
 
 In the `deploy` section, we set the `BROKER_USER` and `BROKER_PWD` environment variables to the values we specified when starting the broker. We will use these in a second to authenticate with the broker.
 
