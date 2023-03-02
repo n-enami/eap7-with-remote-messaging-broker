@@ -64,7 +64,8 @@ public class RemoteBrokerEndpoint {
     @POST
     @Path("{value}")
     @Consumes(MediaType.TEXT_PLAIN)
-    public Response store(@PathParam("value") String value) {
+    public Response send(@PathParam("value") String value) {
+        System.out.println("Sending: " + value);
         context.createProducer().send(queue, value);
         return Response.ok().build();
     }

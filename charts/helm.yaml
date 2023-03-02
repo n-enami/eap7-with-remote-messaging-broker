@@ -1,4 +1,10 @@
 build:
-  uri: https://github.com/kabir/eap-openshift-quickstarts-wip
+  uri: https://github.com/kabir/eap7-with-remote-messaging-broker
   ref: main
-  contextDir: helloworld
+deploy:
+  env:
+    # Env vars to connect to the remote broker
+    - name: BROKER_USER
+      value: admin
+    - name: BROKER_PWD
+      value: admin

@@ -1,22 +1,36 @@
 = Hello World
 
+== The Application
 
----- Scratch pad
+The `src/maim` folder contains a simple application exposing a REST endpoint which allows users to post data. Posted data is sent to a JMS queue on a remote broker. The application listens for messages on the same queue, and exposes an endpoint allowing users to get the data that was received.
 
-```shell
-oc run --name artemis \
+Before deploying the quickstart we need to start a messaging broker on OpenShift. In this case we are using a simple way where we hardcode the username and password in the application Helm chart. *Note* that this is *not* recommended in production. Instead, you should use secrets to obscure this data. The https://github.com/jboss-eap-up-and-running/eap7-with-postgres[eap7-with-postgres] example contains more information about this.
+
+== Starting the messaging broker
+
+First we need to start a messaging broker
+
+[source,shell]
+----
+ oc new-app --name artemis \
     --env AMQ_USER=admin \
     --env AMQ_PASSWORD=admin \
-    --env AMQ_EXTRA_ARGS="--http-host 0.0.0.0 --host 0.0.0.0 --relax-jolokia" \
-    -port=61616 \
-    -port=8161 \
-    quay.io/artemiscloud/activemq-artemis-broker:latest
-```
-also need to expose ports 8161 and 61616
+    --env AMQ_EXTRA_ARGS="--host 0.0.0.0 --relax-jolokia" \
+    quay.io/artemiscloud/activemq-artemis-broker:1.0.15
+----
 
-oc expose deployment artemis --port=8161 --name=artemis-web
+This will create an OpenShift `Deployment` called `artemis` from the image `quay.io/artemiscloud/activemq-artemis-broker:1.0.15`. This will automatically expose a service called `postgresql`. A service is a host name that can be used internally in the cluster. In other words, from inside the OpenShift project we will be able to access our database server via `artemis` rather than needing to know the IP address of the pod(s) running it.
+
+The `AMQ_USER`, `AMQ_PASSWORD` and `AMQ_EXTRA_ARGS` environment variable used are understood by the image, and set the username/password, as well as making sure the broker is bound to all network interfaces.
+
+Unfortunately the port guessed above does not support the protocol used by our Jakarta Messaging Service application. We also need to expose port 61616:
+
+[source,shell]
+----
 oc expose deployment artemis --port=61616 --name=artemis-core
+----
 
+Now our application will be able to access our server on port `61616` via the service `artemis-core` instead of using the IP address.
 
 == The Application
 The `src/main` folder contains a simple 'Hello world' style Java application using a servlet and a CDI bean.
@@ -27,26 +41,55 @@ Make sure you have done all the link:../RUNNING_ON_OPENSHIFT.adoc#_prerequisites
 Then install the Helm chart contained under link:./charts/helm.yaml[charts/helm.yaml] to install the application into OpenShift.
 [source,shell]
 ----
-helm install helloworld -f charts/helm.yaml jboss-eap/eap74
+helm install remote-broker -f charts/helm.yaml jboss-eap/eap74
 ----
 See the link:../RUNNING_ON_OPENSHIFT.adoc#_deploying_with_helm[Deploying with Helm] section for information about when the application will be ready.
 
 == Running the application
 
-To see the output of the application, you can run the following command:
+Send a few values running the following POST commands:
 
 [source,shell]
 ----
-curl https://$(oc get route helloworld --template='{{ .spec.host }}')
+curl -X POST https://$(oc get route remote-broker --template='{{ .spec.host }}')/Hello%20World
+curl -X POST https://$(oc get route remote-broker --template='{{ .spec.host }}')/Hi
+----
+
+Then we can read the entries which were sent and received via the queue on the remote broker:
+
+[source,shell]
+----
+curl https://$(oc get route remote-broker --template='{{ .spec.host }}')
 ----
 You should see the following output:
 [source,shell]
 ----
-<html><head><title>helloworld</title></head><body>
-<h1>Hello World!</h1>
-</body><small>This EAP application has successfully been deployed on OpenShift.</small></html>
+["Hello World","Hi"]
 ----
 
 == Explaining the application configuration
 
-This application is extremely simple, so apart from the standard information in link:../RUNNING_ON_OPENSHIFT.adoc#_introduction_to_helm_charts[Introduction to Helm Charts], link:./charts/helm.yaml[./charts/helm.yaml] contains no additional information.
+This `build` section contains just the standard information in link:../RUNNING_ON_OPENSHIFT.adoc#_introduction_to_helm_charts[Introduction to Helm Charts], link:./charts/helm.yaml[./charts/helm.yaml].
+
+In the `deploy` section, we set the `BROKER_USER` and `BROKER_PWD` environment variables to the values we specified when starting the broker. We will use these in a second to authenticate with the broker.
+
+We use a CLI script to reconfigure the application server to use a remote broker instead of the broker that comes with the application server. See link:{running-doc-url}#using_cli_scripts[Using CLI scripts] for how to add a CLI script to be run before the server starts in the pod. The link:./src/main/scripts/initialize-server.cli[initialize-server.cli] CLI script:
+
+* Removes the internal broker
+* Configures a socket binding to connect to the broker. Note that the `host` is `artemis-core` which is the service we created when setting up the broker which exposes port `61616`
+* Configures a remote connector called `artemis` which references our socket binding
+* Adds a pooled connection factory which:
+** References the `artemis` connector
+** Binds the pooled connection factory under the specified JNDI names
+** Gets the credentials to authenticate with the browser from the `BROKER_USER` and `BROKER_PWD` environment variables
+* Ensures that the pooled connection factory is used by EJBs and by JMS
+
+== Deleting the broker
+The following commands will delete the remote broker once you are done with the quickstart.
+
+[source,shell]
+----
+oc delete deployment artemis
+oc delete service artemis
+oc delete service artemis-core
+----

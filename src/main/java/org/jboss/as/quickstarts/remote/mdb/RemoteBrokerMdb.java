@@ -45,7 +45,9 @@ public class RemoteBrokerMdb implements MessageListener {
         TextMessage msg = null;
         try {
             msg = (TextMessage) message;
-            databean.addMessage(msg.getText());
+            String txt = msg.getText();
+            System.out.println("Received: " + txt);
+            databean.addMessage(txt);
         } catch (Exception e) {
             if (e instanceof RuntimeException){
                 throw (RuntimeException)e;
